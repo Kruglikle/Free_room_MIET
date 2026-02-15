@@ -1,49 +1,49 @@
-# Free Room MIET Telegram Bot
+# Telegram-бот свободных аудиторий МИЭТ
 
-Telegram bot that finds free MIET rooms for a selected day and pair/time by aggregating schedules of all groups.
+Бот показывает свободные аудитории МИЭТ для выбранного дня и пары/времени, агрегируя занятость по всем группам.
 
-## Features
-- Aggregates occupancy across all groups (not a single group).
-- Builds groups list from MIET schedule API.
-- Builds rooms catalog from all group schedules.
-- TTL cache for schedule requests.
-- Day/time mapping and time-to-pair conversion.
-- Pagination for long room lists.
+## Возможности
+- Агрегация занятости по всем группам (не по одной).
+- Автоматическая загрузка списка групп через API расписания МИЭТ.
+- Сбор справочника аудиторий по всем расписаниям.
+- Кэш запросов с TTL.
+- Сопоставление даты и времени с номером пары.
+- Пагинация длинных списков аудиторий.
 
-## Requirements
+## Требования
 - Python 3.11+
 
-Install dependencies:
+Установка зависимостей:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-## Setup
-Create `.env` based on `.env.example`:
+## Настройка
+Создайте `.env` на основе `.env.example`:
 
 ```bash
 copy .env.example .env
 ```
 
-Set `BOT_TOKEN` in `.env`. If MIET is only reachable via your Wi-Fi interface, set `MIET_LOCAL_ADDR` to your local IP.
+Укажите `BOT_TOKEN` в `.env`. Если `miet.ru` доступен только через Wi‑Fi интерфейс, задайте `MIET_LOCAL_ADDR` равным вашему локальному IP.
 
-## Build data
+## Сбор данных
 ```bash
 python scripts/build_groups.py
 python scripts/build_rooms.py
 ```
 
-## Run bot
+## Запуск бота
 ```bash
 python -m src.bot
 ```
 
-## Bot commands
+## Команды бота
 - `/start`
-- `/refresh_groups` (rebuilds groups list)
-- `/refresh_rooms` (reloads rooms.json into memory)
+- `/refresh_groups` — обновить список групп
+- `/refresh_rooms` — перечитать rooms.json в память
 
-## Notes
-- If requests to `miet.ru` time out, check network restrictions and set `MIET_LOCAL_ADDR`.
-- Rooms data is generated; `groups.json` and `rooms.json` are not committed.
+## Примечания
+- Если запросы к `miet.ru` тайм-аутятся, проверьте ограничения сети и настройте `MIET_LOCAL_ADDR`.
+- `groups.json` и `rooms.json` генерируются и не коммитятся в репозиторий.
