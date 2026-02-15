@@ -1,0 +1,12 @@
+.env
+*.log
+__pycache__/
+.venv/
+.idea/
+.vscode/
+.DS_Store
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+groups.json
+rooms.json
