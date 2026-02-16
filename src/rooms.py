@@ -1,14 +1,17 @@
 from __future__ import annotations
+
 import asyncio
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Iterable
-
 
 logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parents[1]
 ROOMS_FILE = BASE_DIR / "rooms.json"
+
+_rooms_build_lock = asyncio.Lock()
 
 
 def _normalize_rooms(rooms: Iterable[str]) -> list[str]:
@@ -27,24 +30,40 @@ def load_rooms(path: Path = ROOMS_FILE) -> list[str]:
 
 
 def save_rooms(rooms: Iterable[str], path: Path = ROOMS_FILE) -> None:
-    path.write_text(json.dumps(_normalize_rooms(rooms), ensure_ascii=False, indent=2), encoding="utf-8")
+    path.write_text(
+        json.dumps(_normalize_rooms(rooms), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
-def ensure_rooms(path: Path = ROOMS_FILE) -> list[str]:
+
+async def ensure_rooms(path: Path = ROOMS_FILE) -> list[str]:
+    """
+    Если rooms.json нет/пустой — строим его в runtime-контейнере, не ломая event loop.
+    """
     rooms = load_rooms(path)
     if rooms:
         return rooms
 
-    logger.warning("rooms.json not found or empty; building rooms now...")
+    async with _rooms_build_lock:
+        # повторная проверка внутри lock (если параллельно уже построили)
+        rooms = load_rooms(path)
+        if rooms:
+            return rooms
 
-    # запускаем сбор комнат как модуль, чтобы не зависеть от pre-deploy
-    from scripts.build_rooms import main as build_rooms_main
+        logger.warning("rooms.json not found or empty; building rooms via scripts/build_rooms.py ...")
 
-    try:
-        asyncio.run(build_rooms_main())
-    except RuntimeError:
-        # если мы уже внутри event loop (например aiogram), делаем иначе
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(build_rooms_main())
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable,
+            "scripts/build_rooms.py",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,
+        )
+        out, _ = await proc.communicate()
 
-    return load_rooms(path)
+        if out:
+            logger.info("build_rooms output:\n%s", out.decode("utf-8", errors="replace"))
 
+        rooms = load_rooms(path)
+        if not rooms:
+            logger.warning("rooms.json still empty after build_rooms run")
+        return rooms
