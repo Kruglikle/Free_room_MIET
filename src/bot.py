@@ -256,7 +256,7 @@ async def show_results(
 async def start_handler(message: Message, state: FSMContext) -> None:
     await state.clear()
     await state.set_state(UserFlow.choosing_day)
-    await message.answer("Привет! Я помогу найти свободные аудитории МИЭТ.")
+    await message.answer("Привет, МИЭТ:) Если не знаете, где прогулять пару, или не знаете, где ее провести, то, конечно, с кайфом в свободной аудитории 😁")
     await prompt_day(message)
 
 
