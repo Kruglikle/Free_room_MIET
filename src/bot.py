@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .rooms import load_rooms, ensure_rooms
 
 import asyncio
 import logging
