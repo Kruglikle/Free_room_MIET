@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 from .cache import TTLCache
 from .groups import load_groups, refresh_groups
 from .miet_api import MietAPI
-from .rooms import load_rooms
+from .rooms import ensure_rooms, load_rooms
 from .scheduler import (
     Scheduler,
     corpus_prefixes,
@@ -28,7 +28,6 @@ from .scheduler import (
     parse_time,
     time_to_code,
 )
-
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
@@ -156,14 +155,20 @@ async def prompt_pairs(target: Message | CallbackQuery, state: FSMContext) -> No
 async def prompt_corpus(target: Message | CallbackQuery, state: FSMContext) -> None:
     if not ctx:
         return
+
+    # Автогенерация rooms, если пусто
     if not ctx.scheduler.rooms:
-        text = "Список аудиторий пуст. Запустите scripts/build_rooms.py."
+        ctx.scheduler.rooms = await ensure_rooms()
+
+    if not ctx.scheduler.rooms:
+        text = "Список аудиторий пуст (не удалось загрузить rooms). Попробуйте позже."
         if isinstance(target, CallbackQuery):
             await target.message.answer(text)
             await target.answer()
         else:
             await target.answer(text)
         return
+
     prefixes = corpus_prefixes(ctx.scheduler.rooms)
     await state.set_state(UserFlow.choosing_corpus)
     if isinstance(target, CallbackQuery):
@@ -182,14 +187,20 @@ async def show_results(
 ) -> None:
     if not ctx:
         return
+
+    # Автогенерация rooms, если пусто
     if not ctx.scheduler.rooms:
-        text = "Список аудиторий пуст. Запустите scripts/build_rooms.py."
+        ctx.scheduler.rooms = await ensure_rooms()
+
+    if not ctx.scheduler.rooms:
+        text = "Список аудиторий пуст (не удалось загрузить rooms). Попробуйте позже."
         if isinstance(target, CallbackQuery):
             await target.message.answer(text)
             await target.answer()
         else:
             await target.answer(text)
         return
+
     data = await state.get_data()
     day_name = data.get("day_name")
     day_number = data.get("day_number")
@@ -264,10 +275,12 @@ async def refresh_groups_handler(message: Message) -> None:
 async def refresh_rooms_handler(message: Message) -> None:
     if not ctx:
         return
-    rooms = load_rooms()
+
+    rooms = await ensure_rooms()
     if not rooms:
-        await message.answer("rooms.json пуст. Запустите scripts/build_rooms.py.")
+        await message.answer("Не удалось собрать rooms (rooms.json всё ещё пуст). Попробуйте позже.")
         return
+
     ctx.scheduler.rooms = rooms
     await message.answer(f"Аудитории обновлены: {len(rooms)}")
 
@@ -375,9 +388,11 @@ async def init_context() -> AppContext:
         groups = await refresh_groups(allow_guess=False)
         if not groups:
             logger.warning("groups.json not found or empty; use /refresh_groups or scripts/build_groups.py")
-    rooms = load_rooms()
+
+    # ВАЖНО: rooms генерим автоматически, если пусто
+    rooms = await ensure_rooms()
     if not rooms:
-        logger.warning("rooms.json not found or empty; run scripts/build_rooms.py")
+        logger.warning("rooms.json not found or empty; rooms features will be unavailable until built")
 
     cache_ttl = int(os.getenv("MIET_CACHE_TTL", "120"))
     max_concurrency = int(os.getenv("MIET_MAX_CONCURRENCY", "10"))
